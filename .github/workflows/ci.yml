@@ -1,0 +1,26 @@
+name: Check Verity
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: hosted-verity/package-lock.json
+      - name: Test the app
+        run: npm test
+      - name: Install Worker build dependencies
+        run: npm ci --prefix hosted-verity
+      - name: Prepare a build-only example manifest
+        run: cp hosted-verity/.openai/hosting.example.json hosted-verity/.openai/hosting.json
+      - name: Build and verify the hosted app
+        working-directory: hosted-verity
+        run: |
+          npm run build
+          npm run validate
+          node scripts/check-worker.mjs

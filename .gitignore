@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+.verity-connection*
+node_modules/
+dist/
+*.log
+*.tar
+*.tar.gz
+*.zip
+*-preview.jpg
+*-live.jpg
+.DS_Store
+Thumbs.db

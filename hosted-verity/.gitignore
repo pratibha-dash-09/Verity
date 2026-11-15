@@ -1,0 +1,8 @@
+dist/
+node_modules/
+.env*
+!.env.example
+.openai/hosting.json
+worker/assets.generated.mjs
+*.log
+*.tar.gz
