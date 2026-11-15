@@ -9,7 +9,7 @@ const check=(value,expected)=>{assert.deepEqual(value,expected);assertions++;};
 const html=await worker.fetch(request('/'),env,{});check(html.status,200);assert.match(await html.text(),/Before you share/);assertions++;
 for(const path of ['/app.js','/evidence.js','/style.css','/assets/verity-field.svg','/assets/dm-regular.ttf'])check((await worker.fetch(request(path),env,{})).status,200);
 for(const path of ['/settings','/settings.js','/.env','/.verity-connection','/api/setup'])check((await worker.fetch(request(path),env,{})).status,404);
-const status=await (await worker.fetch(request('/api/status'),env,{})).json();check(status.ready,true);check(status.models.map(x=>x.id),['swift','scout','lens']);check(JSON.stringify(status).includes('gemini'),false);check(JSON.stringify(status).includes(env.GEMINI_API_KEY),false);
+const status=await (await worker.fetch(request('/api/status'),env,{})).json();check(status.ready,true);check(status.searchReady,false);check(status.models.map(x=>x.id),['swift','scout','lens']);check(JSON.stringify(status).includes('gemini'),false);check(JSON.stringify(status).includes(env.GEMINI_API_KEY),false);
 check((await worker.fetch(request('/api/analyze',{text:'test'},{Origin:'https://evil.example'}),env,{})).status,403);
 check((await worker.fetch(request('/api/analyze',{text:''}),env,{})).status,400);
 check((await worker.fetch(request('/api/analyze',{text:'hello',model:'private-model'}),env,{})).status,400);

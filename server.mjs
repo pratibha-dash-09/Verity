@@ -33,7 +33,7 @@ function publicModels() {
 }
 function status() {
   const models = publicModels();
-  return {ready:Boolean(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY), models, defaultModel:models[0]?.id || ''};
+  return {ready:Boolean(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY),searchReady:Boolean(process.env.TAVILY_API_KEY),models, defaultModel:models[0]?.id || ''};
 }
 function publicReport(report) {
   // Explicit fields prevent service metadata and configuration entering public reports.
@@ -41,6 +41,7 @@ function publicReport(report) {
     verdict:report.verdict, summary:report.summary, checkedAt:report.checkedAt,
     kind:report.provider === 'Public news search' ? 'coverage' : 'assessment',
     researchStatus:report.researchStatus || 'complete',
+    researchCoverage:report.researchCoverage || 'direct',
     claims:report.claims.map(claim => ({claim:claim.claim, verdict:claim.verdict, reason:claim.reason,
       evidence:claim.evidence.map(source => ({url:source.url, title:source.title, explanation:source.explanation, ...(source.quote ? {quote:source.quote} : {})}))}))
   };
@@ -91,7 +92,7 @@ function selectedModels(model) {
 }
 async function analyze(data) {
   const models=process.env.GEMINI_API_KEY ? selectedModels(data.model) : [];
-  return reuseReport(data,models,()=>performAnalysis(data,models));
+  return reuseReport(data,[...models,process.env.TAVILY_API_KEY?'web-search':'references-only'],()=>performAnalysis(data,models));
 }
 async function performAnalysis(data,models) {
   if (!data.image) {
@@ -108,7 +109,7 @@ async function performAnalysis(data,models) {
     return incompleteReport(data.text, 'The research service is not connected. A new assessment could not be completed.');
   }
   try {
-    return await (process.env.GEMINI_API_KEY ? verifyGemini(data, models) : verify(data));
+    return await (process.env.GEMINI_API_KEY ? verifyGemini(data, models,process.env.GEMINI_API_KEY,process.env.TAVILY_API_KEY) : verify(data));
   } catch (error) {
     if (error.httpStatus) throw error;
     const reason = error.status === 429

@@ -33,6 +33,8 @@ Branded choices map to Gemini models; they are not independently trained models.
 
 ## Evidence and limitations
 
+For broad web and news research, configure `TAVILY_API_KEY` in the ignored local `.env` or in hosted runtime secrets. Without this key, the interface identifies coverage as limited. Tavily search uses basic depth with automatic upgrades disabled and accepts full article text as evidence. A generated search answer or headline snippet is insufficient. Search terms go to Tavily, and retrieved passages go to the assessment provider. Quota and connection failures are shown as unavailable research, rather than a completed unverified check. Provider account limits and terms apply.
+
 Verity retrieves Wikipedia reference passages and recent public news text from BBC, The Guardian, NPR, The Indian Express, The Hindu and the Indian Prime Minister's public feed. It checks dates, people and claim context, and rejects some unsupported conclusions such as using a general public greeting to disprove a same-day arrest claim. There are also narrow public-record checks for USD/INR exchange-rate claims and Google's CEO listing.
 
 This is a prototype with limited source coverage. No general accuracy percentage has been established. The displayed evidence percentage counts claims with a decisive verdict and a citation; it is not the probability that a verdict is correct. Sources and model reasoning can be wrong. Missing evidence cannot establish False, and image text extraction does not establish image authenticity. Article-URL fetching is not implemented.

@@ -16,7 +16,7 @@ export async function generate(body, model, key) {
   return response.json();
 }
 
-export async function verifyGemini({text, image}, models = [], key) {
+export async function verifyGemini({text, image}, models = [], key, searchKey = '') {
   const options = models.length ? models : ['gemini-3.5-flash-lite'];
   const parts = [{text:text.trim() || 'Read the article image and check its factual claims.'}];
   if (image) {
@@ -24,7 +24,7 @@ export async function verifyGemini({text, image}, models = [], key) {
     parts.push({inlineData:{mimeType,data}});
   }
   for (const model of options) {
-    try { return await researchWithReferences(parts, model, key, generate); }
+    try { return await researchWithReferences(parts, model, key, generate, searchKey); }
     catch (error) { if (error.status !== 404 || model === options.at(-1)) throw error; }
   }
 }

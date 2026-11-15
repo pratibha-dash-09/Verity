@@ -28,7 +28,7 @@ function selectModels(id,available){
   return [...chosen,...available.filter(model=>!chosen.includes(model))];
 }
 function publicReport(report){return {
-  verdict:report.verdict,summary:report.summary,checkedAt:report.checkedAt,kind:'assessment',researchStatus:report.researchStatus||'complete',
+  verdict:report.verdict,summary:report.summary,checkedAt:report.checkedAt,kind:'assessment',researchStatus:report.researchStatus||'complete',researchCoverage:report.researchCoverage||'direct',
   claims:report.claims.map(claim=>({claim:claim.claim,verdict:claim.verdict,reason:claim.reason,evidence:claim.evidence.map(source=>({url:source.url,title:source.title,explanation:source.explanation,...(source.quote?{quote:source.quote}:{})}))}))
 };}
 async function bodyJson(request){
@@ -60,7 +60,7 @@ function admission(request){
   if(entry.count>=5||active>=4)fail(429,'Verity is busy. Please wait a moment before checking again.');
   entry.count++;
 }
-async function analyze(data,models,key){return reuseReport(data,models,async()=>{
+async function analyze(data,models,key,searchKey){return reuseReport(data,[...models,searchKey?'web-search':'references-only'],async()=>{
   if(!data.image){
     const context=checkClaimContext(data.text);
     if(context)return context;
@@ -69,7 +69,7 @@ async function analyze(data,models,key){return reuseReport(data,models,async()=>
     try{const rate=await checkExchangeRate(data.text);if(rate)return rate;}catch{return incompleteReport(data.text,'The exchange-rate record is temporarily unavailable.');}
   }
   if(!key)return incompleteReport(data.text,'The research service is temporarily unavailable. Please try again later.');
-  try{return await verifyGemini(data,models,key);}
+  try{return await verifyGemini(data,models,key,searchKey);}
   catch(error){return incompleteReport(data.text,error.status===429?'The shared research allowance has been used. Please try again after it resets.':error.name==='TimeoutError'?'The research service took too long to respond. Please try again.':'The research service could not complete this check. Please try again.');}
 });}
 export default {async fetch(request,env,ctx){
@@ -79,7 +79,7 @@ export default {async fetch(request,env,ctx){
     if(request.method==='GET'&&pathname==='/api/status'){
       if(ctx?.waitUntil)ctx.waitUntil(warmNewsSources());
       const models=slots.filter(slot=>available.some(id=>names[id]===slot.name));
-      return json({ready:Boolean(env.GEMINI_API_KEY&&models.length),models,defaultModel:models[0]?.id||''});
+      return json({ready:Boolean(env.GEMINI_API_KEY&&models.length),searchReady:Boolean(env.TAVILY_API_KEY),models,defaultModel:models[0]?.id||''});
     }
     if(request.method==='POST'&&['/api/analyze','/api/transcribe'].includes(pathname)){
       if(request.headers.get('Origin')&&request.headers.get('Origin')!==origin)fail(403,'Open Verity to submit a claim.');
@@ -93,7 +93,7 @@ export default {async fetch(request,env,ctx){
       if(!env.GEMINI_API_KEY)fail(503,'The research service is temporarily unavailable. Please try again later.');
       admission(request);active++;
       try{
-        if(pathname==='/api/analyze')return json(publicReport(await analyze(data,models,env.GEMINI_API_KEY)));
+        if(pathname==='/api/analyze')return json(publicReport(await analyze(data,models,env.GEMINI_API_KEY,env.TAVILY_API_KEY)));
         try{return json({transcript:await transcribeAudio(data,models,env.GEMINI_API_KEY)});}
         catch{fail(502,'The recording could not be transcribed. Please retry later or paste a transcript.');}
       }finally{active--;}

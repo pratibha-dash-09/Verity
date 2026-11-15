@@ -45,7 +45,9 @@ function element(tag, text, className) {
 }
 
 fetch('/api/status').then(response => response.json()).then(status => {
-  $('#connection-text').textContent = status.ready ? 'Ready to check' : 'Public source checks';
+  $('#connection-text').textContent = status.ready ? (status.searchReady?'Ready to check':'Limited news search') : 'Public source checks';
+  $('#connection').classList.toggle('limited',Boolean(status.ready&&!status.searchReady));
+  $('#connection').title=status.searchReady?'Web and news search is available.':'This workspace currently checks references and selected news feeds. Wider web/news search is not connected.';
   const select = $('#research-model');
   select.replaceChildren(...status.models.map(model => new Option(model.name, model.id)));
   if (status.models.length) {
@@ -241,6 +243,7 @@ function render(result) {
   score.append(explanation,element('span','Not an accuracy estimate.','coverage-disclaimer'));
   lead.append(answer,score);
   box.replaceChildren(lead);
+  if(result.researchCoverage)box.append(element('p',result.researchCoverage==='broad'?'Coverage: web and news search.':result.researchCoverage==='direct'?'Coverage: a specific public record.':'Limited coverage: references and selected news feeds.','report-coverage'));
   result.claims.forEach(claim => {
     const section = element('article', '', 'claim-result');
     if (result.claims.length > 1) section.append(element('span', verdictLabel(claim.verdict), 'badge ' + claim.verdict));

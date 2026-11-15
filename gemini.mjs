@@ -16,16 +16,15 @@ export async function generate(body, model, key) {
   return response.json();
 }
 
-export async function verifyGemini({text, image}, models = []) {
+export async function verifyGemini({text, image}, models = [], key = process.env.GEMINI_API_KEY, searchKey = '') {
   const options = models.length ? models : [process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'];
-  const key = process.env.GEMINI_API_KEY;
   const parts = [{text:text.trim() || 'Read the article image and check its factual claims.'}];
   if (image) {
     const [,mimeType,data] = image.match(/^data:(image\/\w+);base64,(.+)$/);
     parts.push({inlineData:{mimeType,data}});
   }
   for (const model of options) {
-    try { return await researchWithReferences(parts, model, key, generate); }
+    try { return await researchWithReferences(parts, model, key, generate, searchKey); }
     catch (error) { if (error.status !== 404 || model === options.at(-1)) throw error; }
   }
 }

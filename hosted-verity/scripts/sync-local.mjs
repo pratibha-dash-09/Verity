@@ -3,10 +3,10 @@ const root=new URL('../../',import.meta.url);
 const target=new URL('../',import.meta.url);
 await mkdir(new URL('worker/lib/',target),{recursive:true});
 await mkdir(new URL('public/assets/',target),{recursive:true});
-const modules=['gemini','reference-research','reference-sources','verify','live-news','recent-reports','provider-errors','public-data','leadership','transcribe','model-discovery'];
+const modules=['gemini','reference-research','reference-sources','web-search','verify','live-news','recent-reports','provider-errors','public-data','leadership','transcribe','model-discovery'];
 for(const name of modules){
   let source=await readFile(new URL(name+'.mjs',root),'utf8');
-  if(name==='gemini')source=source.replace('models = [])','models = [], key)').replace("process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'","'gemini-3.5-flash-lite'").replace('  const key = process.env.GEMINI_API_KEY;\n','');
+  if(name==='gemini')source=source.replace('key = process.env.GEMINI_API_KEY','key').replace("process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'","'gemini-3.5-flash-lite'");
   if(name==='verify')source=source.slice(0,source.indexOf('\nasync function call('))+'\n';
   if(name==='live-news')source=source.replace("Buffer.concat(chunks).toString('utf8')","new TextDecoder().decode(await new Blob(chunks).arrayBuffer())");
   if(name==='recent-reports')source=source.replace("import {createHash} from 'node:crypto';","const hash=async value=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(byte=>byte.toString(16).padStart(2,'0')).join('');").replace("createHash('sha256').update(data.image || '').digest('hex')","await hash(data.image || '')").replace("createHash('sha256').update(JSON.stringify([models, data.text.trim(),fingerprint])).digest('hex')","await hash(JSON.stringify([models, data.text.trim(),fingerprint]))");
