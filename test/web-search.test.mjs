@@ -12,6 +12,21 @@ test('a search snippet or unsafe destination is never promoted to article eviden
  assert.equal(searchResultSource({url:'https://example.org',title:'Headline',content:article},'Vega'),null);
  for(const url of ['http://example.org','https://127.0.0.1','https://user:password@example.org','https://host.internal'])assert.equal(searchResultSource({url,raw_content:article},'Vega'),null);
 });
+test('headline-only news leads get original article extraction in one basic batch',async()=>{
+ const original=global.fetch;const calls=[];
+ global.fetch=async(url,options)=>{
+  const body=JSON.parse(options.body);calls.push({url,body});assert.equal(options.headers.Authorization,'Bearer extraction-test-key');assert.ok(!options.body.includes('extraction-test-key'));
+  if(url.endsWith('/search'))return Response.json({results:[{url:'https://example.org/original',title:'Original news title',content:'Only a search snippet.',published_date:'2026-11-15'},{url:'https://127.0.0.1/private',title:'Unsafe lead'}]});
+  assert.equal(url,'https://api.tavily.com/extract');assert.equal(body.extract_depth,'basic');assert.equal(body.format,'text');assert.deepEqual(body.urls,['https://example.org/original']);
+  return Response.json({results:[{url:'https://example.org/original',raw_content:article},{url:'https://unrequested.example.org',raw_content:article}],failed_results:[]});
+ };
+ try{const result=await lookupWebSources('Vega news original body fixture','extraction-test-key');assert.equal(calls.length,2);assert.equal(result.length,1);assert.equal(result[0].title,'Original news title');assert.equal(result[0].publishedAt,'2026-11-15');assert.ok(result[0].extract.includes('Vega observatory'));await lookupWebSources('Vega news original body fixture','extraction-test-key');assert.equal(calls.length,2);}finally{global.fetch=original;}
+});
+test('failed article extraction is unavailable research instead of headline evidence',async()=>{
+ const original=global.fetch;
+ global.fetch=async url=>url.endsWith('/search')?Response.json({results:[{url:'https://example.org/blocked',title:'Unverified headline',content:article}]}):Response.json({results:[],failed_results:[{url:'https://example.org/blocked',error:'Blocked'}]});
+ try{await assert.rejects(()=>lookupWebSources('blocked article fixture','blocked-extraction-key'),error=>error.code==='SEARCH_UNAVAILABLE');}finally{global.fetch=original;}
+});
 test('quota failures are sanitized and are not cached as an empty successful search',async()=>{
  const original=global.fetch;let calls=0;
  global.fetch=async()=>{calls++;return new Response('SECRET PROVIDER ERROR',{status:432});};
