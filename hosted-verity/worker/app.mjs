@@ -70,7 +70,11 @@ async function analyze(data,models,key,searchKey){return reuseReport(data,[...mo
   }
   if(!key)return incompleteReport(data.text,'The research service is temporarily unavailable. Please try again later.');
   try{return await verifyGemini(data,models,key,searchKey);}
-  catch(error){return incompleteReport(data.text,error.status===429?'The shared research allowance has been used. Please try again after it resets.':error.name==='TimeoutError'?'The research service took too long to respond. Please try again.':'The research service could not complete this check. Please try again.');}
+  catch(error){
+    const reasons=['Incomplete claim assessment','Claim identity mismatch','Invalid analysis','Invalid claim'];
+    console.warn('Verity assessment unavailable',JSON.stringify({status:Number.isInteger(error.status)?error.status:0,errorName:['TypeError','SyntaxError','TimeoutError','AbortError'].includes(error.name)?error.name:'Error',reason:reasons.includes(error.message)?error.message:'Service response'}));
+    return incompleteReport(data.text,error.status===429?'The shared research allowance has been used. Please try again after it resets.':error.name==='TimeoutError'?'The research service took too long to respond. Please try again.':'The research service could not complete this check. Please try again.');
+  }
 });}
 export default {async fetch(request,env,ctx){
   const {pathname,origin}=new URL(request.url);

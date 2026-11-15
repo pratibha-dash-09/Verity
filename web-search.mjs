@@ -36,11 +36,22 @@ async function limitedJson(response){
 async function request(endpoint,body,key,timeout){
   let response;
   try{response=await fetch('https://api.tavily.com/'+endpoint,{
-    method:'POST',redirect:'error',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
+    // Workers supports manual redirects; reject non-2xx below without forwarding
+    // the authorization header to any destination returned by the provider.
+    method:'POST',redirect:'manual',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
     body:JSON.stringify(body),signal:AbortSignal.timeout(Math.max(1,timeout))
-  });}catch{throw failure(503);}
-  if(!response.ok){await response.body?.cancel();throw failure(response.status);}
-  try{return await limitedJson(response);}catch{throw failure(502);}
+  });}catch(error){
+    console.warn('Verity search unavailable',JSON.stringify({endpoint,stage:'network',errorName:['TypeError','TimeoutError','AbortError'].includes(error?.name)?error.name:'Error'}));
+    throw failure(503);
+  }
+  if(!response.ok){
+    console.warn('Verity search unavailable',JSON.stringify({endpoint,stage:'response',status:response.status}));
+    await response.body?.cancel();throw failure(response.status);
+  }
+  try{return await limitedJson(response);}catch(error){
+    console.warn('Verity search unavailable',JSON.stringify({endpoint,stage:'body',errorName:['TypeError','SyntaxError','TimeoutError','AbortError'].includes(error?.name)?error.name:'Error'}));
+    throw failure(502);
+  }
 }
 export async function lookupWebSources(query,key){
   if(!key)return [];

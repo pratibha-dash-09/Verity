@@ -36,5 +36,30 @@ try{
   const voice=await(await worker.fetch(request('/api/transcribe',{audio:wav.toString('base64'),mimeType:'audio/wav',language:'en-IN',model:'swift'}),env,{})).json();
   check(voice.transcript,'The Moon orbits Earth.');
 }finally{globalThis.fetch=originalFetch;}
+const searchEnv={...env,TAVILY_API_KEY:'test-search-secret'};
+const searchStatus=await(await worker.fetch(request('/api/status'),searchEnv,{})).json();
+check(searchStatus.searchReady,true);check(JSON.stringify(searchStatus).includes(searchEnv.TAVILY_API_KEY),false);
+const newsClaim='The Vega observatory opened on 15 November 2026.';
+globalThis.fetch=async(url,options)=>{
+  if(String(url).startsWith('https://api.tavily.com/')){
+    // Node accepts redirect:error, but the deployed Worker rejects it before I/O.
+    if(options.redirect==='error')throw new TypeError('Invalid redirect value');
+    check(options.redirect,'manual');check(options.headers.Authorization,'Bearer '+searchEnv.TAVILY_API_KEY);
+    check(options.body.includes(searchEnv.TAVILY_API_KEY),false);
+    return Response.json({results:[{url:'https://example.org/vega-news',title:'Vega opening',raw_content:newsClaim+' '+('The dated article records the opening ceremony and the observatory facilities. '.repeat(8))}]});
+  }
+  if(String(url).includes('wikipedia.org'))return Response.json({query:{pages:{}}});
+  if(String(url).includes('generateContent')){
+    const input=JSON.parse(JSON.parse(options.body).contents[0].parts[0].text);
+    const evidence=input.sources.find(item=>item.url==='https://example.org/vega-news');assert.ok(evidence);assertions++;
+    return Response.json({candidates:[{content:{parts:[{text:JSON.stringify({summary:newsClaim,claims:[{claimId:0,verdict:'Supported',reason:'The original dated article confirms the opening.',evidence:[{sourceId:evidence.sourceId,quote:newsClaim}]}]})}]}}]});
+  }
+  return new Response('',{status:404});
+};
+try{
+  const broad=await(await worker.fetch(request('/api/analyze',{text:newsClaim}),searchEnv,{})).json();
+  check(broad.verdict,'Supported');check(broad.researchCoverage,'broad');check(broad.claims[0].evidence[0].url,'https://example.org/vega-news');
+  check(JSON.stringify(broad).includes(searchEnv.TAVILY_API_KEY),false);
+}finally{globalThis.fetch=originalFetch;}
 assert(!/process\.env|node:|test-server-secret|BEGIN PRIVATE KEY/.test(source));assertions++;
 console.log(assertions+' checks passed: public assets, private route exclusion, validation, source-backed text/image assessment, voice transcription and secret isolation.');

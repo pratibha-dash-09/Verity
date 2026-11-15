@@ -12,6 +12,16 @@ test('a search snippet or unsafe destination is never promoted to article eviden
  assert.equal(searchResultSource({url:'https://example.org',title:'Headline',content:article},'Vega'),null);
  for(const url of ['http://example.org','https://127.0.0.1','https://user:password@example.org','https://host.internal'])assert.equal(searchResultSource({url,raw_content:article},'Vega'),null);
 });
+test('search runs with Worker-compatible redirect handling and refuses redirects without forwarding the key',async()=>{
+ const original=global.fetch;let calls=0;
+ global.fetch=async(url,options)=>{
+  calls++;assert.equal(url,'https://api.tavily.com/search');
+  if(options.redirect==='error')throw new TypeError('Invalid redirect value');
+  assert.equal(options.redirect,'manual');
+  return new Response(null,{status:307,headers:{Location:'https://untrusted.example.org/key-capture'}});
+ };
+ try{await assert.rejects(()=>lookupWebSources('redirect fixture','redirect-test-key'),error=>error.code==='SEARCH_UNAVAILABLE');assert.equal(calls,1);}finally{global.fetch=original;}
+});
 test('headline-only news leads get original article extraction in one basic batch',async()=>{
  const original=global.fetch;const calls=[];
  global.fetch=async(url,options)=>{
@@ -31,6 +41,16 @@ test('quota failures are sanitized and are not cached as an empty successful sea
  const original=global.fetch;let calls=0;
  global.fetch=async()=>{calls++;return new Response('SECRET PROVIDER ERROR',{status:432});};
  try{for(let i=0;i<2;i++)await assert.rejects(()=>lookupWebSources('quota fixture','quota-test-key'),error=>error.code==='SEARCH_QUOTA'&&!error.message.includes('SECRET'));assert.equal(calls,2);}finally{global.fetch=original;}
+});
+test('search diagnostics contain only the endpoint and failure category, never credentials or provider messages',async()=>{
+ const original=global.fetch;const warn=console.warn;const messages=[];
+ console.warn=(...parts)=>messages.push(parts.join(' '));
+ global.fetch=async()=>{throw new TypeError('private-diagnostic-key sensitive provider message');};
+ try{
+  await assert.rejects(()=>lookupWebSources('diagnostic fixture','private-diagnostic-key'),error=>error.code==='SEARCH_UNAVAILABLE');
+  assert.equal(messages.length,1);assert.ok(messages[0].includes('"stage":"network"'));assert.ok(messages[0].includes('"errorName":"TypeError"'));
+  assert.ok(!messages[0].includes('private-diagnostic-key'));assert.ok(!messages[0].includes('sensitive provider message'));
+ }finally{global.fetch=original;console.warn=warn;}
 });
 test('a claim outside the fixed feeds can be verified from retrieved web article text',async()=>{
  const original=global.fetch;
